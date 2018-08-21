@@ -1,11 +1,45 @@
 import { EventEmitter, Inject, Injectable, InjectionToken, NgZone, Optional } from '@angular/core';
 import bbox from '@turf/bbox';
 import { polygon } from '@turf/helpers';
-import * as MapboxGl from 'mapbox-gl';
+// import * as MapboxGl from 'mapbox-gl';
 import { AsyncSubject, Observable, Subscription } from 'rxjs';
 import { first } from 'rxjs/operators';
 import { BBox } from 'supercluster';
 import { MapEvent, MapImageData, MapImageOptions } from './map.types';
+import {
+  Anchor,
+  AnimationOptions, BackgroundLayout,
+  BackgroundPaint,
+  CameraOptions,
+  CanvasSourceOptions, CircleLayout,
+  CirclePaint,
+  Control, EventData, FillExtrusionLayout,
+  FillExtrusionPaint, FillLayout,
+  FillPaint,
+  FlyToOptions,
+  GeoJSONSource,
+  GeoJSONSourceRaw,
+  IControl,
+  ImageSourceOptions,
+  Layer, LineLayout,
+  LinePaint,
+  LngLatBoundsLike,
+  LngLatLike,
+  Map as MbMap,
+  MapboxOptions, MapBoxZoomEvent,
+  MapMouseEvent, MapTouchEvent,
+  Marker,
+  MarkerOptions,
+  PointLike,
+  Popup,
+  PopupOptions, RasterLayout,
+  RasterPaint,
+  RasterSource,
+  Style, SymbolLayout,
+  SymbolPaint,
+  VectorSource,
+  VideoSourceOptions
+} from 'mapbox-gl';
 
 export const MAPBOX_API_KEY = new InjectionToken('MapboxApiKey');
 
@@ -16,22 +50,22 @@ export abstract class MglResizeEventEmitter {
 export interface SetupMap {
   accessToken?: string;
   customMapboxApiUrl?: string;
-  mapOptions: any; // MapboxGl.MapboxOptions
+  mapOptions: any; // MapboxOptions
   mapEvents: MapEvent;
 }
 
 export interface SetupLayer {
-  layerOptions: MapboxGl.Layer;
+  layerOptions: Layer;
   layerEvents: {
-    click: EventEmitter<MapboxGl.MapMouseEvent>;
-    mouseEnter: EventEmitter<MapboxGl.MapMouseEvent>;
-    mouseLeave: EventEmitter<MapboxGl.MapMouseEvent>;
-    mouseMove: EventEmitter<MapboxGl.MapMouseEvent>;
+    click: EventEmitter<MapMouseEvent>;
+    mouseEnter: EventEmitter<MapMouseEvent>;
+    mouseLeave: EventEmitter<MapMouseEvent>;
+    mouseMove: EventEmitter<MapMouseEvent>;
   };
 }
 
 export interface SetupPopup {
-  popupOptions: MapboxGl.PopupOptions;
+  popupOptions: PopupOptions;
   popupEvents: {
     open: EventEmitter<void>;
     close: EventEmitter<void>;
@@ -40,35 +74,35 @@ export interface SetupPopup {
 
 export interface SetupMarker {
   markersOptions: {
-    offset?: MapboxGl.PointLike;
-    anchor?: MapboxGl.Anchor;
+    offset?: PointLike;
+    anchor?: Anchor;
     draggable?: boolean;
     element: HTMLElement;
     feature?: GeoJSON.Feature<GeoJSON.Point>;
-    lngLat?: MapboxGl.LngLatLike;
+    lngLat?: LngLatLike;
   };
   markersEvents: {
-    dragStart: EventEmitter<MapboxGl.Marker>;
-    drag: EventEmitter<MapboxGl.Marker>;
-    dragEnd: EventEmitter<MapboxGl.Marker>;
+    dragStart: EventEmitter<Marker>;
+    drag: EventEmitter<Marker>;
+    dragEnd: EventEmitter<Marker>;
   };
 }
 
-export type AllSource = MapboxGl.VectorSource |
-  MapboxGl.RasterSource |
-  MapboxGl.GeoJSONSource |
-  MapboxGl.ImageSourceOptions |
-  MapboxGl.VideoSourceOptions |
-  MapboxGl.GeoJSONSourceRaw |
-  MapboxGl.CanvasSourceOptions;
+export type AllSource = VectorSource |
+  RasterSource |
+  GeoJSONSource |
+  ImageSourceOptions |
+  VideoSourceOptions |
+  GeoJSONSourceRaw |
+  CanvasSourceOptions;
 
-export type MovingOptions = MapboxGl.FlyToOptions |
-  (MapboxGl.AnimationOptions & MapboxGl.CameraOptions) |
-  MapboxGl.CameraOptions;
+export type MovingOptions = FlyToOptions |
+  (AnimationOptions & CameraOptions) |
+  CameraOptions;
 
 @Injectable()
 export class MapService {
-  mapInstance: MapboxGl.Map;
+  mapInstance: MbMap;
   mapCreated$: Observable<void>;
   mapLoaded$: Observable<void>;
   mapEvents: MapEvent;
@@ -77,8 +111,8 @@ export class MapService {
   private mapLoaded = new AsyncSubject<void>();
   private layerIdsToRemove: string[] = [];
   private sourceIdsToRemove: string[] = [];
-  private markersToRemove: MapboxGl.Marker[] = [];
-  private popupsToRemove: MapboxGl.Popup[] = [];
+  private markersToRemove: Marker[] = [];
+  private popupsToRemove: Popup[] = [];
   private imageIdsToRemove: string[] = [];
   private subscription = new Subscription();
 
@@ -95,9 +129,10 @@ export class MapService {
     // Need onStable to wait for a potential @angular/route transition to end
     this.zone.onStable.pipe(first()).subscribe(() => {
       // Workaround rollup issue
-      this.assign(MapboxGl, 'accessToken', options.accessToken || this.MAPBOX_API_KEY);
+      console.log(this.MAPBOX_API_KEY);
+      // this.assign(MapboxGl, 'accessToken', options.accessToken || this.MAPBOX_API_KEY);
       if (options.customMapboxApiUrl) {
-        this.assign(MapboxGl, 'config.API_URL', options.customMapboxApiUrl);
+        // this.assign(MapboxGl, 'config.API_URL', options.customMapboxApiUrl);
       }
       this.createMap(options.mapOptions);
       this.hookEvents(options.mapEvents);
@@ -166,14 +201,14 @@ export class MapService {
     });
   }
 
-  updateStyle(style: MapboxGl.Style) {
+  updateStyle(style: Style) {
     // TODO Probably not so simple, write demo/tests
     return this.zone.runOutsideAngular(() => {
       this.mapInstance.setStyle(style);
     });
   }
 
-  updateMaxBounds(maxBounds: MapboxGl.LngLatBoundsLike) {
+  updateMaxBounds(maxBounds: LngLatBoundsLike) {
     // TODO Probably not so simple, write demo/tests
     return this.zone.runOutsideAngular(() => {
       this.mapInstance.setMaxBounds(maxBounds);
@@ -186,13 +221,13 @@ export class MapService {
   }
 
   queryRenderedFeatures(
-    pointOrBox?: MapboxGl.PointLike | MapboxGl.PointLike[],
+    pointOrBox?: PointLike | PointLike[],
     parameters?: { layers?: string[], filter?: any[] }
   ): GeoJSON.Feature<GeoJSON.GeometryObject>[] {
     return this.mapInstance.queryRenderedFeatures(pointOrBox, parameters);
   }
 
-  panTo(center: MapboxGl.LngLatLike, options?: MapboxGl.AnimationOptions) {
+  panTo(center: LngLatLike, options?: AnimationOptions) {
     return this.zone.runOutsideAngular(() => {
       this.mapInstance.panTo(center, options);
     });
@@ -202,7 +237,7 @@ export class MapService {
     movingMethod: 'jumpTo' | 'easeTo' | 'flyTo',
     movingOptions?: MovingOptions,
     zoom?: number,
-    center?: MapboxGl.LngLatLike,
+    center?: LngLatLike,
     bearing?: number,
     pitch?: number
   ) {
@@ -221,7 +256,7 @@ export class MapService {
     this.zone.runOutsideAngular(() => {
       Object.keys(layer.layerOptions)
         .forEach((key: string) => {
-          const tkey = <keyof MapboxGl.Layer>key;
+          const tkey = <keyof Layer>key;
           if (layer.layerOptions[tkey] === undefined) {
             delete layer.layerOptions[tkey];
           }
@@ -229,28 +264,28 @@ export class MapService {
       this.mapInstance.addLayer(layer.layerOptions, before);
       if (bindEvents) {
         if (layer.layerEvents.click.observers.length) {
-          this.mapInstance.on('click', layer.layerOptions.id, (evt: MapboxGl.MapMouseEvent) => {
+          this.mapInstance.on('click', layer.layerOptions.id, (evt: MapMouseEvent) => {
             this.zone.run(() => {
               layer.layerEvents.click.emit(evt);
             });
           });
         }
         if (layer.layerEvents.mouseEnter.observers.length) {
-          this.mapInstance.on('mouseenter', layer.layerOptions.id, (evt: MapboxGl.MapMouseEvent) => {
+          this.mapInstance.on('mouseenter', layer.layerOptions.id, (evt: MapMouseEvent) => {
             this.zone.run(() => {
               layer.layerEvents.mouseEnter.emit(evt);
             });
           });
         }
         if (layer.layerEvents.mouseLeave.observers.length) {
-          this.mapInstance.on('mouseleave', layer.layerOptions.id, (evt: MapboxGl.MapMouseEvent) => {
+          this.mapInstance.on('mouseleave', layer.layerOptions.id, (evt: MapMouseEvent) => {
             this.zone.run(() => {
               layer.layerEvents.mouseLeave.emit(evt);
             });
           });
         }
         if (layer.layerEvents.mouseMove.observers.length) {
-          this.mapInstance.on('mousemove', layer.layerOptions.id, (evt: MapboxGl.MapMouseEvent) => {
+          this.mapInstance.on('mousemove', layer.layerOptions.id, (evt: MapMouseEvent) => {
             this.zone.run(() => {
               layer.layerEvents.mouseMove.emit(evt);
             });
@@ -265,7 +300,7 @@ export class MapService {
   }
 
   addMarker(marker: SetupMarker) {
-    const options: MapboxGl.MarkerOptions = {
+    const options: MarkerOptions = {
       offset: marker.markersOptions.offset,
       anchor: marker.markersOptions.anchor,
       draggable: !!marker.markersOptions.draggable
@@ -273,19 +308,19 @@ export class MapService {
     if (marker.markersOptions.element.childNodes.length > 0) {
       options.element = marker.markersOptions.element;
     }
-    const markerInstance = new MapboxGl.Marker(options);
+    const markerInstance = new Marker(options);
     if (marker.markersEvents.dragStart.observers.length) {
-      markerInstance.on('dragstart', (event: { target: MapboxGl.Marker }) =>
+      markerInstance.on('dragstart', (event: { target: Marker }) =>
         this.zone.run(() => marker.markersEvents.dragStart.emit(event.target))
       );
     }
     if (marker.markersEvents.drag.observers.length) {
-      markerInstance.on('drag', (event: { target: MapboxGl.Marker }) =>
+      markerInstance.on('drag', (event: { target: Marker }) =>
         this.zone.run(() => marker.markersEvents.drag.emit(event.target))
       );
     }
     if (marker.markersEvents.dragEnd.observers.length) {
-      markerInstance.on('dragend', (event: { target: MapboxGl.Marker }) =>
+      markerInstance.on('dragend', (event: { target: Marker }) =>
         this.zone.run(() => marker.markersEvents.dragEnd.emit(event.target))
       );
     }
@@ -299,7 +334,7 @@ export class MapService {
     });
   }
 
-  removeMarker(marker: MapboxGl.Marker) {
+  removeMarker(marker: Marker) {
     this.markersToRemove.push(marker);
   }
 
@@ -308,7 +343,7 @@ export class MapService {
       Object.keys(popup.popupOptions)
         .forEach((key) =>
           (<any>popup.popupOptions)[key] === undefined && delete (<any>popup.popupOptions)[key]);
-      const popupInstance = new MapboxGl.Popup(popup.popupOptions);
+      const popupInstance = new Popup(popup.popupOptions);
       popupInstance.setDOMContent(element);
       if (popup.popupEvents.close.observers.length) {
         popupInstance.on('close', () => {
@@ -328,7 +363,7 @@ export class MapService {
     });
   }
 
-  addPopupToMap(popup: MapboxGl.Popup, lngLat: MapboxGl.LngLatLike, skipOpenEvent = false) {
+  addPopupToMap(popup: Popup, lngLat: LngLatLike, skipOpenEvent = false) {
     return this.zone.runOutsideAngular(() => {
       if (skipOpenEvent && (<any>popup)._listeners) {
         delete (<any>popup)._listeners['open'];
@@ -338,32 +373,32 @@ export class MapService {
     });
   }
 
-  addPopupToMarker(marker: MapboxGl.Marker, popup: MapboxGl.Popup) {
+  addPopupToMarker(marker: Marker, popup: Popup) {
     return this.zone.runOutsideAngular(() => {
       marker.setPopup(popup);
     });
   }
 
-  removePopupFromMap(popup: MapboxGl.Popup, skipCloseEvent = false) {
+  removePopupFromMap(popup: Popup, skipCloseEvent = false) {
     if (skipCloseEvent && (<any>popup)._listeners) {
       delete (<any>popup)._listeners['close'];
     }
     this.popupsToRemove.push(popup);
   }
 
-  removePopupFromMarker(marker: MapboxGl.Marker) {
+  removePopupFromMarker(marker: Marker) {
     return this.zone.runOutsideAngular(() => {
       marker.setPopup(undefined);
     });
   }
 
-  addControl(control: MapboxGl.Control | MapboxGl.IControl, position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left') {
+  addControl(control: Control | IControl, position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left') {
     return this.zone.runOutsideAngular(() => {
       this.mapInstance.addControl(<any>control, position);
     });
   }
 
-  removeControl(control: MapboxGl.Control | MapboxGl.IControl) {
+  removeControl(control: Control | IControl) {
     return this.zone.runOutsideAngular(() => {
       this.mapInstance.removeControl(<any>control);
     });
@@ -413,13 +448,13 @@ export class MapService {
 
   setAllLayerPaintProperty(
     layerId: string,
-    paint: MapboxGl.BackgroundPaint |
-      MapboxGl.FillPaint |
-      MapboxGl.FillExtrusionPaint |
-      MapboxGl.LinePaint |
-      MapboxGl.SymbolPaint |
-      MapboxGl.RasterPaint |
-      MapboxGl.CirclePaint
+    paint: BackgroundPaint |
+      FillPaint |
+      FillExtrusionPaint |
+      LinePaint |
+      SymbolPaint |
+      RasterPaint |
+      CirclePaint
   ) {
     return this.zone.runOutsideAngular(() => {
       Object.keys(paint).forEach((key) => {
@@ -431,13 +466,13 @@ export class MapService {
 
   setAllLayerLayoutProperty(
     layerId: string,
-    layout: MapboxGl.BackgroundLayout |
-      MapboxGl.FillLayout |
-      MapboxGl.FillExtrusionLayout |
-      MapboxGl.LineLayout |
-      MapboxGl.SymbolLayout |
-      MapboxGl.RasterLayout |
-      MapboxGl.CircleLayout
+    layout: BackgroundLayout |
+      FillLayout |
+      FillExtrusionLayout |
+      LineLayout |
+      SymbolLayout |
+      RasterLayout |
+      CircleLayout
   ) {
     return this.zone.runOutsideAngular(() => {
       Object.keys(layout).forEach((key) => {
@@ -465,7 +500,7 @@ export class MapService {
     });
   }
 
-  fitBounds(bounds: MapboxGl.LngLatBoundsLike, options?: any) {
+  fitBounds(bounds: LngLatBoundsLike, options?: any) {
     return this.zone.runOutsideAngular(() => {
       this.mapInstance.fitBounds(bounds, options);
     });
@@ -492,16 +527,16 @@ export class MapService {
     });
   }
 
-  private createMap(options: MapboxGl.MapboxOptions) {
+  private createMap(options: MapboxOptions) {
     NgZone.assertNotInAngularZone();
     Object.keys(options)
       .forEach((key: string) => {
-        const tkey = <keyof MapboxGl.MapboxOptions>key;
+        const tkey = <keyof MapboxOptions>key;
         if (options[tkey] === undefined) {
           delete options[tkey];
         }
       });
-    this.mapInstance = new MapboxGl.Map(options);
+    this.mapInstance = new MbMap(options);
     const subChanges = this.zone.onMicrotaskEmpty
       .subscribe(() => this.applyChanges());
     if (this.MglResizeEventEmitter) {
@@ -565,56 +600,56 @@ export class MapService {
       this.mapInstance.on('remove', () => this.zone.run(() => events.remove.emit()));
     }
     if (events.mouseDown.observers.length) {
-      this.mapInstance.on('mousedown', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseDown.emit(evt)));
+      this.mapInstance.on('mousedown', (evt: MapMouseEvent) => this.zone.run(() => events.mouseDown.emit(evt)));
     }
     if (events.mouseUp.observers.length) {
-      this.mapInstance.on('mouseup', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseUp.emit(evt)));
+      this.mapInstance.on('mouseup', (evt: MapMouseEvent) => this.zone.run(() => events.mouseUp.emit(evt)));
     }
     if (events.mouseMove.observers.length) {
-      this.mapInstance.on('mousemove', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseMove.emit(evt)));
+      this.mapInstance.on('mousemove', (evt: MapMouseEvent) => this.zone.run(() => events.mouseMove.emit(evt)));
     }
     if (events.click.observers.length) {
-      this.mapInstance.on('click', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.click.emit(evt)));
+      this.mapInstance.on('click', (evt: MapMouseEvent) => this.zone.run(() => events.click.emit(evt)));
     }
     if (events.dblClick.observers.length) {
-      this.mapInstance.on('dblclick', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.dblClick.emit(evt)));
+      this.mapInstance.on('dblclick', (evt: MapMouseEvent) => this.zone.run(() => events.dblClick.emit(evt)));
     }
     if (events.mouseEnter.observers.length) {
-      this.mapInstance.on('mouseenter', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseEnter.emit(evt)));
+      this.mapInstance.on('mouseenter', (evt: MapMouseEvent) => this.zone.run(() => events.mouseEnter.emit(evt)));
     }
     if (events.mouseLeave.observers.length) {
-      this.mapInstance.on('mouseleave', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseLeave.emit(evt)));
+      this.mapInstance.on('mouseleave', (evt: MapMouseEvent) => this.zone.run(() => events.mouseLeave.emit(evt)));
     }
     if (events.mouseOver.observers.length) {
-      this.mapInstance.on('mouseover', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseOver.emit(evt)));
+      this.mapInstance.on('mouseover', (evt: MapMouseEvent) => this.zone.run(() => events.mouseOver.emit(evt)));
     }
     if (events.mouseOut.observers.length) {
-      this.mapInstance.on('mouseout', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.mouseOut.emit(evt)));
+      this.mapInstance.on('mouseout', (evt: MapMouseEvent) => this.zone.run(() => events.mouseOut.emit(evt)));
     }
     if (events.contextMenu.observers.length) {
-      this.mapInstance.on('contextmenu', (evt: MapboxGl.MapMouseEvent) => this.zone.run(() => events.contextMenu.emit(evt)));
+      this.mapInstance.on('contextmenu', (evt: MapMouseEvent) => this.zone.run(() => events.contextMenu.emit(evt)));
     }
     if (events.touchStart.observers.length) {
-      this.mapInstance.on('touchstart', (evt: MapboxGl.MapTouchEvent) => this.zone.run(() => events.touchStart.emit(evt)));
+      this.mapInstance.on('touchstart', (evt: MapTouchEvent) => this.zone.run(() => events.touchStart.emit(evt)));
     }
     if (events.touchEnd.observers.length) {
-      this.mapInstance.on('touchend', (evt: MapboxGl.MapTouchEvent) => this.zone.run(() => events.touchEnd.emit(evt)));
+      this.mapInstance.on('touchend', (evt: MapTouchEvent) => this.zone.run(() => events.touchEnd.emit(evt)));
     }
     if (events.touchMove.observers.length) {
-      this.mapInstance.on('touchmove', (evt: MapboxGl.MapTouchEvent) => this.zone.run(() => events.touchMove.emit(evt)));
+      this.mapInstance.on('touchmove', (evt: MapTouchEvent) => this.zone.run(() => events.touchMove.emit(evt)));
     }
     if (events.touchCancel.observers.length) {
-      this.mapInstance.on('touchcancel', (evt: MapboxGl.MapTouchEvent) => this.zone.run(() => events.touchCancel.emit(evt)));
+      this.mapInstance.on('touchcancel', (evt: MapTouchEvent) => this.zone.run(() => events.touchCancel.emit(evt)));
     }
     if (events.wheel.observers.length) {
-      // MapboxGl.MapWheelEvent
+      // MapWheelEvent
       this.mapInstance.on('wheel', (evt: any) => this.zone.run(() => events.wheel.emit(evt)));
     }
     if (events.moveStart.observers.length) {
       this.mapInstance.on('movestart', (evt: DragEvent) => this.zone.run(() => events.moveStart.emit(evt)));
     }
     if (events.move.observers.length) {
-      this.mapInstance.on('move', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() => events.move.emit(evt)));
+      this.mapInstance.on('move', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() => events.move.emit(evt)));
     }
     if (events.moveEnd.observers.length) {
       this.mapInstance.on('moveend', (evt: DragEvent) => this.zone.run(() => events.moveEnd.emit(evt)));
@@ -623,50 +658,50 @@ export class MapService {
       this.mapInstance.on('dragstart', (evt: DragEvent) => this.zone.run(() => events.dragStart.emit(evt)));
     }
     if (events.drag.observers.length) {
-      this.mapInstance.on('drag', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() => events.drag.emit(evt)));
+      this.mapInstance.on('drag', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() => events.drag.emit(evt)));
     }
     if (events.dragEnd.observers.length) {
       this.mapInstance.on('dragend', (evt: DragEvent) => this.zone.run(() => events.dragEnd.emit(evt)));
     }
     if (events.zoomStart.observers.length) {
-      this.mapInstance.on('zoomstart', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() =>
+      this.mapInstance.on('zoomstart', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() =>
         events.zoomStart.emit(evt)));
     }
     if (events.zoomEvt.observers.length) {
-      this.mapInstance.on('zoom', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() => events.zoomEvt.emit(evt)));
+      this.mapInstance.on('zoom', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() => events.zoomEvt.emit(evt)));
     }
     if (events.zoomEnd.observers.length) {
-      this.mapInstance.on('zoomend', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() =>
+      this.mapInstance.on('zoomend', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() =>
         events.zoomEnd.emit(evt)));
     }
     if (events.rotateStart.observers.length) {
-      this.mapInstance.on('rotatestart', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() =>
+      this.mapInstance.on('rotatestart', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() =>
         events.rotateStart.emit(evt)));
     }
     if (events.rotate.observers.length) {
-      this.mapInstance.on('rotate', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() => events.rotate.emit(evt)));
+      this.mapInstance.on('rotate', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() => events.rotate.emit(evt)));
     }
     if (events.rotateEnd.observers.length) {
-      this.mapInstance.on('rotateend', (evt: MapboxGl.MapTouchEvent | MapboxGl.MapMouseEvent) => this.zone.run(() =>
+      this.mapInstance.on('rotateend', (evt: MapTouchEvent | MapMouseEvent) => this.zone.run(() =>
         events.rotateEnd.emit(evt)));
     }
     if (events.pitchStart.observers.length) {
-      this.mapInstance.on('pitchstart', (evt: MapboxGl.EventData) => this.zone.run(() => events.pitchStart.emit(evt)));
+      this.mapInstance.on('pitchstart', (evt: EventData) => this.zone.run(() => events.pitchStart.emit(evt)));
     }
     if (events.pitchEvt.observers.length) {
-      this.mapInstance.on('pitch', (evt: MapboxGl.EventData) => this.zone.run(() => events.pitchEvt.emit(evt)));
+      this.mapInstance.on('pitch', (evt: EventData) => this.zone.run(() => events.pitchEvt.emit(evt)));
     }
     if (events.pitchEnd.observers.length) {
-      this.mapInstance.on('pitchend', (evt: MapboxGl.EventData) => this.zone.run(() => events.pitchEnd.emit(evt)));
+      this.mapInstance.on('pitchend', (evt: EventData) => this.zone.run(() => events.pitchEnd.emit(evt)));
     }
     if (events.boxZoomStart.observers.length) {
-      this.mapInstance.on('boxzoomstart', (evt: MapboxGl.MapBoxZoomEvent) => this.zone.run(() => events.boxZoomStart.emit(evt)));
+      this.mapInstance.on('boxzoomstart', (evt: MapBoxZoomEvent) => this.zone.run(() => events.boxZoomStart.emit(evt)));
     }
     if (events.boxZoomEnd.observers.length) {
-      this.mapInstance.on('boxzoomend', (evt: MapboxGl.MapBoxZoomEvent) => this.zone.run(() => events.boxZoomEnd.emit(evt)));
+      this.mapInstance.on('boxzoomend', (evt: MapBoxZoomEvent) => this.zone.run(() => events.boxZoomEnd.emit(evt)));
     }
     if (events.boxZoomCancel.observers.length) {
-      this.mapInstance.on('boxzoomcancel', (evt: MapboxGl.MapBoxZoomEvent) => this.zone.run(() => events.boxZoomCancel.emit(evt)));
+      this.mapInstance.on('boxzoomcancel', (evt: MapBoxZoomEvent) => this.zone.run(() => events.boxZoomCancel.emit(evt)));
     }
     if (events.webGlContextLost.observers.length) {
       this.mapInstance.on('webglcontextlost', () => this.zone.run(() => events.webGlContextLost.emit()));
@@ -681,25 +716,26 @@ export class MapService {
       this.mapInstance.on('error', () => this.zone.run(() => events.error.emit()));
     }
     if (events.data.observers.length) {
-      this.mapInstance.on('data', (evt: MapboxGl.EventData) => this.zone.run(() => events.data.emit(evt)));
+      this.mapInstance.on('data', (evt: EventData) => this.zone.run(() => events.data.emit(evt)));
     }
     if (events.styleData.observers.length) {
-      this.mapInstance.on('styledata', (evt: MapboxGl.EventData) => this.zone.run(() => events.styleData.emit(evt)));
+      this.mapInstance.on('styledata', (evt: EventData) => this.zone.run(() => events.styleData.emit(evt)));
     }
     if (events.sourceData.observers.length) {
-      this.mapInstance.on('sourcedata', (evt: MapboxGl.EventData) => this.zone.run(() => events.sourceData.emit(evt)));
+      this.mapInstance.on('sourcedata', (evt: EventData) => this.zone.run(() => events.sourceData.emit(evt)));
     }
     if (events.dataLoading.observers.length) {
-      this.mapInstance.on('dataloading', (evt: MapboxGl.EventData) => this.zone.run(() => events.dataLoading.emit(evt)));
+      this.mapInstance.on('dataloading', (evt: EventData) => this.zone.run(() => events.dataLoading.emit(evt)));
     }
     if (events.styleDataLoading.observers.length) {
-      this.mapInstance.on('styledataloading', (evt: MapboxGl.EventData) => this.zone.run(() => events.styleDataLoading.emit(evt)));
+      this.mapInstance.on('styledataloading', (evt: EventData) => this.zone.run(() => events.styleDataLoading.emit(evt)));
     }
     if (events.sourceDataLoading.observers.length) {
-      this.mapInstance.on('sourcedataloading', (evt: MapboxGl.EventData) => this.zone.run(() => events.sourceDataLoading.emit(evt)));
+      this.mapInstance.on('sourcedataloading', (evt: EventData) => this.zone.run(() => events.sourceDataLoading.emit(evt)));
     }
   }
 
+/*
   // TODO move this elsewhere
   private assign(obj: any, prop: any, value: any) {
     if (typeof prop === 'string') {
@@ -718,4 +754,5 @@ export class MapService {
       obj[prop[0]] = value;
     }
   }
+*/
 }
