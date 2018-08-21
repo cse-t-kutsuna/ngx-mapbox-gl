@@ -126,6 +126,7 @@ export class MapService {
   }
 
   setup(options: SetupMap) {
+    console.log('in MapService.setup');
     // Need onStable to wait for a potential @angular/route transition to end
     this.zone.onStable.pipe(first()).subscribe(() => {
       // Workaround rollup issue
